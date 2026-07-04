@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>花園夜市 車輛登記</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#2b2118;
+    --paper:#faf6ef;
+    --card:#ffffff;
+    --accent:#c8451f;
+    --accent-dark:#a53617;
+    --gold:#e8a13a;
+    --line:#e3d9c8;
+    --ok:#2e7d4f;
+    --err:#c0392b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"PingFang TC","Microsoft JhengHei",sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  header{
+    background:linear-gradient(135deg,#1d1610 0%,#3a2417 100%);
+    color:#fff;
+    padding:20px 16px 14px;
+    text-align:center;
+  }
+  header h1{font-size:21px;letter-spacing:4px;font-weight:700}
+  header .sub{font-size:12px;color:var(--gold);letter-spacing:6px;margin-top:4px}
+  .tabs{
+    display:flex;
+    background:#fff;
+    border-bottom:2px solid var(--line);
+    position:sticky;top:0;z-index:10;
+  }
+  .tab{
+    flex:1;padding:13px 0;text-align:center;
+    font-size:15px;font-weight:600;color:#9a8a76;
+    border:none;background:none;cursor:pointer;
+    border-bottom:3px solid transparent;
+  }
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .page{max-width:520px;margin:0 auto;padding:18px 16px 60px}
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:20px 18px;
+    box-shadow:0 1px 4px rgba(60,40,20,.06);
+  }
+  label{display:block;font-size:14px;font-weight:600;margin:16px 0 6px}
+  label:first-child{margin-top:0}
+  label .req{color:var(--accent);margin-left:2px}
+  label .hint{font-weight:400;color:#9a8a76;font-size:12px;margin-left:6px}
+  input[type=text],input[type=tel]{
+    width:100%;padding:12px;font-size:16px;
+    border:1.5px solid var(--line);border-radius:8px;
+    background:#fffdf9;
+  }
+  input:focus{outline:none;border-color:var(--gold)}
+  .row2{display:flex;gap:10px}
+  .row2>div{flex:1}
+  .spot-choice{display:flex;gap:8px;margin-top:6px}
+  .spot-choice button{
+    flex:1;padding:11px 0;font-size:14px;font-weight:600;
+    border:1.5px solid var(--line);border-radius:8px;
+    background:#fffdf9;color:#9a8a76;cursor:pointer;
+  }
+  .spot-choice button.on{
+    background:#fdf0e9;border-color:var(--accent);color:var(--accent);
+  }
+  .btn{
+    width:100%;padding:14px;font-size:17px;font-weight:700;
+    color:#fff;background:var(--accent);
+    border:none;border-radius:10px;cursor:pointer;
+    margin-top:22px;letter-spacing:2px;
+  }
+  .btn:active{background:var(--accent-dark)}
+  .btn:disabled{background:#c9bdae;cursor:default}
+  .btn.line{background:#fff;color:var(--accent);border:1.5px solid var(--accent);margin-top:10px}
+  .msg{margin-top:14px;padding:12px;border-radius:8px;font-size:14px;display:none;line-height:1.6}
+  .msg.ok{display:block;background:#e8f5ec;color:var(--ok)}
+  .msg.err{display:block;background:#fdecea;color:var(--err)}
+  /* admin */
+  .toolbar{display:flex;gap:8px;margin-bottom:12px}
+  .toolbar input{flex:1}
+  .stat{font-size:13px;color:#9a8a76;margin:8px 2px 10px}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:13px}
+  th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#f4ecdf;font-size:12px;white-space:nowrap}
+  td .plate{font-weight:700;font-size:14px}
+  td .old{color:#9a8a76;font-size:11px}
+  td .temp{display:inline-block;background:#fdf0e9;color:var(--accent);font-size:11px;padding:1px 6px;border-radius:6px;margin-top:2px}
+  .del{color:var(--err);background:none;border:none;font-size:12px;cursor:pointer;padding:4px}
+  .export-bar{display:flex;gap:8px;margin-top:14px}
+  .export-bar .btn{margin-top:0;font-size:14px;padding:12px;letter-spacing:1px}
+  #adminGate{text-align:center;padding:40px 0}
+  #adminGate input{max-width:220px;text-align:center;margin:14px auto 0;display:block}
+  #adminGate .btn{max-width:220px;margin:14px auto 0;display:block}
+  .loading{text-align:center;color:#9a8a76;padding:30px 0;font-size:14px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>花園夜市</h1>
+  <div class="sub">車輛車牌登記</div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" id="tabReg" onclick="showTab('reg')">車輛登記</button>
+  <button class="tab" id="tabAdmin" onclick="showTab('admin')">管理</button>
+</div>
+
+<!-- ===== 登記頁 ===== -->
+<div class="page" id="pageReg">
+  <div class="card">
+    <label>車牌<span class="req">＊</span><span class="hint">英文數字,免填「-」</span></label>
+    <input type="text" id="fPlate" placeholder="例:ABC1234" autocapitalize="characters" autocomplete="off">
+
+    <label>舊車牌<span class="hint">換車、換牌才需填寫,舊資料會自動更新</span></label>
+    <input type="text" id="fOldPlate" placeholder="無則免填" autocapitalize="characters" autocomplete="off">
+
+    <label>攤名<span class="req">＊</span></label>
+    <input type="text" id="fStall" placeholder="例:阿明鹽酥雞" autocomplete="off">
+
+    <label>格位<span class="req">＊</span></label>
+    <div class="spot-choice">
+      <button type="button" id="spotFixed" class="on" onclick="setSpotType('fixed')">固定格位</button>
+      <button type="button" id="spotTemp" onclick="setSpotType('temp')">臨時格</button>
+    </div>
+    <label style="margin-top:10px">格位號碼<span class="req">＊</span></label>
+    <input type="text" id="fSpot" placeholder="例:一排 5" autocomplete="off">
+    <div id="boxTemp" style="display:none">
+      <label style="margin-top:10px">發位者<span class="req">＊</span></label>
+      <input type="text" id="fIssuer" placeholder="請填發位者姓名" autocomplete="off">
+    </div>
+
+    <label>司機姓名<span class="req">＊</span></label>
+    <input type="text" id="fDriver" autocomplete="off">
+
+    <label>司機電話<span class="req">＊</span><span class="hint">09 開頭共 10 碼</span></label>
+    <input type="tel" id="fPhone" placeholder="09xxxxxxxx" maxlength="10" inputmode="numeric" autocomplete="off">
+
+    <button class="btn" id="btnSubmit" onclick="submitReg()">送出登記</button>
+    <div class="msg" id="regMsg"></div>
+  </div>
+</div>
+
+<!-- ===== 管理頁 ===== -->
+<div class="page" id="pageAdmin" style="display:none">
+  <div id="adminGate" class="card">
+    <div style="font-size:15px;font-weight:600">管理人員登入</div>
+    <input type="text" id="adminPw" placeholder="請輸入密碼" style="-webkit-text-security:disc">
+    <button class="btn" onclick="adminLogin()">登入</button>
+    <div class="msg" id="gateMsg"></div>
+  </div>
+
+  <div id="adminMain" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="q" placeholder="搜尋車牌 / 攤名 / 司機" oninput="renderList()">
+    </div>
+    <div class="stat" id="stat"></div>
+    <div id="listBox" class="loading">載入中…</div>
+    <div class="export-bar">
+      <button class="btn" onclick="exportParking()">匯出停車系統檔</button>
+      <button class="btn line" onclick="exportBackup()">匯出完整備份 CSV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= 設定 ================= */
+const SUPABASE_URL = 'https://evzqyplqbdrzikkvjtvh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2enF5cGxxYmRyemlra3ZqdHZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzODQ2MDAsImV4cCI6MjA5NDk2MDYwMH0.6GBy9iaanu3-ghBaJGdcFRQfOuMaDtP2RouwUIgMEek';
+const TABLE = 'vehicles';
+const ADMIN_PASSWORD = '0000';
+const EXPORT_YEARS = 10;                       // 匯出時效期年數
+/* ======================================= */
+
+const H = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
+let spotType = 'fixed';
+let allRows = [];
+
+function showTab(t){
+  document.getElementById('pageReg').style.display = t==='reg'?'block':'none';
+  document.getElementById('pageAdmin').style.display = t==='admin'?'block':'none';
+  document.getElementById('tabReg').classList.toggle('active', t==='reg');
+  document.getElementById('tabAdmin').classList.toggle('active', t==='admin');
+}
+
+function setSpotType(t){
+  spotType = t;
+  document.getElementById('spotFixed').classList.toggle('on', t==='fixed');
+  document.getElementById('spotTemp').classList.toggle('on', t==='temp');
+  document.getElementById('boxTemp').style.display = t==='temp'?'block':'none';
+}
+
+function normPlate(s){
+  return (s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+}
+
+function msg(id, cls, text){
+  const el = document.getElementById(id);
+  el.className = 'msg ' + cls;
+  el.textContent = text;
+}
+
+/* ---------- 登記送出 ---------- */
+async function submitReg(){
+  const plate    = normPlate(document.getElementById('fPlate').value);
+  const oldPlate = normPlate(document.getElementById('fOldPlate').value);
+  const stall    = document.getElementById('fStall').value.trim();
+  const spot     = document.getElementById('fSpot').value.trim();
+  const issuer   = document.getElementById('fIssuer').value.trim();
+  const driver   = document.getElementById('fDriver').value.trim();
+  const phone    = document.getElementById('fPhone').value.trim();
+
+  if(!plate)  return msg('regMsg','err','請填寫車牌');
+  if(plate.length < 4) return msg('regMsg','err','車牌格式不正確,請再確認');
+  if(!stall)  return msg('regMsg','err','請填寫攤名');
+  if(!spot) return msg('regMsg','err','請填寫格位號碼');
+  if(spotType==='temp' && !issuer) return msg('regMsg','err','臨時格請填寫發位者');
+  if(!driver) return msg('regMsg','err','請填寫司機姓名');
+  if(!/^09\d{8}$/.test(phone)) return msg('regMsg','err','電話格式不正確,須為 09 開頭共 10 碼數字');
+
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true; btn.textContent = '送出中…';
+
+  const rec = {
+    plate: plate,
+    old_plate: oldPlate || null,
+    stall_name: stall,
+    is_temp: spotType==='temp',
+    spot: spot,
+    issuer: spotType==='temp' ? issuer : null,
+    driver_name: driver,
+    driver_phone: phone
+  };
+
+  try{
+    // 檢查新車牌是否已登記
+    const dupR = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${plate}&select=plate,driver_name`, {headers:H});
+    const dup = await dupR.json();
+    if(dup.length > 0){
+      msg('regMsg','err',`此車牌已由「${dup[0].driver_name}」登記過,如需修改請洽管理人員`);
+      btn.disabled=false; btn.textContent='送出登記'; return;
+    }
+
+    // 有填舊車牌且資料庫有該筆 → 更新舊資料(換車/換牌)
+    if(oldPlate){
+      const oldR = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${oldPlate}&select=id`, {headers:H});
+      const old = await oldR.json();
+      if(old.length > 0){
+        const u = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${oldPlate}`, {
+          method:'PATCH', headers:H, body: JSON.stringify(rec)
+        });
+        if(!u.ok) throw new Error('更新失敗 ' + u.status);
+        msg('regMsg','ok',`登記完成!舊車牌 ${oldPlate} 已更新為 ${plate}`);
+        clearForm(); btn.disabled=false; btn.textContent='送出登記'; return;
+      }
+    }
+
+    // 新增
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+      method:'POST', headers:H, body: JSON.stringify(rec)
+    });
+    if(!r.ok) throw new Error('登記失敗 ' + r.status);
+    msg('regMsg','ok',`登記完成!車牌 ${plate} 已送出,謝謝配合`);
+    clearForm();
+  }catch(e){
+    msg('regMsg','err','送出失敗,請確認網路後再試一次(' + e.message + ')');
+  }
+  btn.disabled=false; btn.textContent='送出登記';
+}
+
+function clearForm(){
+  ['fPlate','fOldPlate','fStall','fSpot','fIssuer','fDriver','fPhone'].forEach(id=>document.getElementById(id).value='');
+  setSpotType('fixed');
+}
+
+/* ---------- 管理 ---------- */
+function adminLogin(){
+  if(document.getElementById('adminPw').value !== ADMIN_PASSWORD){
+    return msg('gateMsg','err','密碼錯誤');
+  }
+  document.getElementById('adminGate').style.display='none';
+  document.getElementById('adminMain').style.display='block';
+  loadAll();
+}
+
+async function loadAll(){
+  allRows = [];
+  let page = 0, size = 1000;
+  try{
+    while(true){
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=*&order=created_at.desc&limit=${size}&offset=${page*size}`, {headers:H});
+      const rows = await r.json();
+      allRows = allRows.concat(rows);
+      if(rows.length < size) break;
+      page++;
+    }
+    renderList();
+  }catch(e){
+    document.getElementById('listBox').innerHTML = '<div class="loading">載入失敗,請重新整理</div>';
+  }
+}
+
+function renderList(){
+  const q = document.getElementById('q').value.trim().toUpperCase();
+  const rows = allRows.filter(r =>
+    !q || r.plate.includes(q) ||
+    (r.stall_name||'').toUpperCase().includes(q) ||
+    (r.driver_name||'').toUpperCase().includes(q)
+  );
+  document.getElementById('stat').textContent = `共 ${allRows.length} 筆` + (q?`,符合 ${rows.length} 筆`:'');
+  if(rows.length===0){
+    document.getElementById('listBox').innerHTML = '<div class="loading">沒有資料</div>'; return;
+  }
+  let html = '<table><tr><th>車牌</th><th>攤名</th><th>格位</th><th>司機</th><th></th></tr>';
+  for(const r of rows){
+    const spotTxt = r.is_temp
+      ? `${esc(r.spot||'')}<br><span class="temp">臨時格・${esc(r.issuer||'')}</span>`
+      : esc(r.spot||'');
+    html += `<tr>
+      <td><div class="plate">${esc(r.plate)}</div>${r.old_plate?`<div class="old">舊:${esc(r.old_plate)}</div>`:''}</td>
+      <td>${esc(r.stall_name)}</td>
+      <td>${spotTxt}</td>
+      <td>${esc(r.driver_name)}<br><span class="old">${esc(r.driver_phone)}</span></td>
+      <td><button class="del" onclick="delRow('${r.plate}')">刪除</button></td>
+    </tr>`;
+  }
+  document.getElementById('listBox').innerHTML = html + '</table>';
+}
+
+function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function delRow(plate){
+  if(!confirm(`確定刪除車牌 ${plate}?此動作無法復原`)) return;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${plate}`, {method:'DELETE', headers:H});
+  if(r.ok){ allRows = allRows.filter(x=>x.plate!==plate); renderList(); }
+  else alert('刪除失敗,請再試一次');
+}
+
+/* ---------- 匯出:停車系統格式 ---------- */
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtDate(d){
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function exportParking(){
+  const now = new Date();
+  const end = new Date(now); end.setFullYear(end.getFullYear() + EXPORT_YEARS);
+  const header = [
+    '(B1)License plate number(compulsory)',
+    '(B2)Owner(compulsory)',
+    '(B3)Phone Number(compulsory)',
+    '(C1)Effective start time(yyyy/MM/dd hh:mm:ss)',
+    '(C2)Effective end time(yyyy/MM/dd hh:mm:ss)',
+    '(C3)License plate type',
+    '(C4)List type(Block list 1;Allow list 2;temporary vehicle 3)',
+    '(C5)Parking Card Number'
+  ];
+  const data = [header];
+  for(const r of allRows){
+    data.push([r.plate, r.driver_name, r.driver_phone, fmtDate(now), fmtDate(end), '', 2, '']);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:16},{wch:16},{wch:14},{wch:22},{wch:22},{wch:12},{wch:10},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '工作表1');
+  XLSX.writeFile(wb, `車牌登記_停車系統_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
+}
+
+/* ---------- 匯出:完整備份 CSV ---------- */
+function exportBackup(){
+  const header = ['車牌','舊車牌','攤名','格位','臨時格','發位者','司機姓名','司機電話','登記時間'];
+  const lines = [header.join(',')];
+  for(const r of allRows){
+    lines.push([
+      r.plate, r.old_plate||'', r.stall_name||'', r.spot||'',
+      r.is_temp?'是':'', r.issuer||'', r.driver_name||'', r.driver_phone||'',
+      (r.created_at||'').replace('T',' ').slice(0,19)
+    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  }
+  const blob = new Blob(['\ufeff' + lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = `車牌登記_備份_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
