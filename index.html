@@ -103,7 +103,14 @@
   td .old{color:#9a8a76;font-size:11px}
   td .temp{display:inline-block;background:#fdf0e9;color:var(--accent);font-size:11px;padding:1px 6px;border-radius:6px;margin-top:2px}
   .del{color:var(--err);background:none;border:none;font-size:12px;cursor:pointer;padding:4px}
-  .export-bar{display:flex;gap:8px;margin-top:14px}
+  .export-bar{
+    position:sticky;bottom:0;
+    display:flex;gap:8px;
+    margin:14px -4px 0;
+    padding:10px 4px calc(10px + env(safe-area-inset-bottom));
+    background:var(--paper);
+    border-top:1px solid var(--line);
+  }
   .export-bar .btn{margin-top:0;font-size:14px;padding:12px;letter-spacing:1px}
   #adminGate{text-align:center;padding:40px 0}
   #adminGate input{max-width:220px;text-align:center;margin:14px auto 0;display:block}
