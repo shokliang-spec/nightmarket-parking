@@ -102,6 +102,7 @@
   td .plate{font-weight:700;font-size:14px}
   td .old{color:#9a8a76;font-size:11px}
   td .temp{display:inline-block;background:#fdf0e9;color:var(--accent);font-size:11px;padding:1px 6px;border-radius:6px;margin-top:2px}
+  td .today-tag{display:inline-block;background:#e8f5ec;color:var(--ok);font-size:12px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
   .del{color:var(--err);background:none;border:none;font-size:12px;cursor:pointer;padding:4px}
   .export-bar{
     position:sticky;bottom:0;
@@ -325,6 +326,19 @@ async function loadAll(){
   }
 }
 
+function fmtWhen(iso){
+  if(!iso) return {txt:'', today:false};
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay = d.toDateString()===now.toDateString();
+  const y = new Date(now); y.setDate(y.getDate()-1);
+  const yesterday = d.toDateString()===y.toDateString();
+  const hm = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  if(sameDay)   return {txt:'今天 '+hm, today:true};
+  if(yesterday) return {txt:'昨天 '+hm, today:false};
+  return {txt:(d.getMonth()+1)+'/'+d.getDate(), today:false};
+}
+
 function renderList(){
   const q = document.getElementById('q').value.trim().toUpperCase();
   const rows = allRows.filter(r =>
@@ -332,20 +346,28 @@ function renderList(){
     (r.stall_name||'').toUpperCase().includes(q) ||
     (r.driver_name||'').toUpperCase().includes(q)
   );
-  document.getElementById('stat').textContent = `共 ${allRows.length} 筆` + (q?`,符合 ${rows.length} 筆`:'');
+  const now = new Date();
+  const todayCount = allRows.filter(r => r.created_at && new Date(r.created_at).toDateString()===now.toDateString()).length;
+  const todayTxt = todayCount>0 ? ` ・ <span style="color:var(--accent);font-weight:700">今日新增 ${todayCount} 筆</span>` : '';
+  document.getElementById('stat').innerHTML = `共 ${allRows.length} 筆` + (q?`,符合 ${rows.length} 筆`:'') + todayTxt;
   if(rows.length===0){
     document.getElementById('listBox').innerHTML = '<div class="loading">沒有資料</div>'; return;
   }
-  let html = '<table><tr><th>車牌</th><th>攤名</th><th>格位</th><th>司機</th><th></th></tr>';
+  let html = '<table><tr><th>車牌</th><th>攤名</th><th>格位</th><th>司機</th><th>登記時間</th><th></th></tr>';
   for(const r of rows){
     const spotTxt = r.is_temp
       ? `${esc(r.spot||'')}<br><span class="temp">臨時格・${esc(r.issuer||'')}</span>`
       : esc(r.spot||'');
+    const w = fmtWhen(r.created_at);
+    const whenTxt = w.today
+      ? `<span class="today-tag">${w.txt}</span>`
+      : `<span class="old">${w.txt}</span>`;
     html += `<tr>
       <td><div class="plate">${esc(r.plate)}</div>${r.old_plate?`<div class="old">舊:${esc(r.old_plate)}</div>`:''}</td>
       <td>${esc(r.stall_name)}</td>
       <td>${spotTxt}</td>
       <td>${esc(r.driver_name)}<br><span class="old">${esc(r.driver_phone)}</span></td>
+      <td>${whenTxt}</td>
       <td><button class="del" onclick="delRow('${r.plate}')">刪除</button></td>
     </tr>`;
   }
