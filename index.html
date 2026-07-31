@@ -196,7 +196,19 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const TABLE = 'vehicles';
 const ADMIN_PASSWORD = '0000';
 const EXPORT_YEARS = 10;                       // 匯出時效期年數
+const NOTIFY_URL = SUPABASE_URL + '/functions/v1/notify-line';  // LINE 通知函式
 /* ======================================= */
+
+// 發送 LINE 通知(失敗不影響登記,靜默處理)
+function notifyLine(data){
+  try{
+    fetch(NOTIFY_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SUPABASE_KEY },
+      body: JSON.stringify(data)
+    }).catch(()=>{});
+  }catch(e){}
+}
 
 const H = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
 let spotType = 'fixed';
@@ -276,6 +288,7 @@ async function submitReg(){
           method:'PATCH', headers:H, body: JSON.stringify(rec)
         });
         if(!u.ok) throw new Error('更新失敗 ' + u.status);
+        notifyLine({plate:plate+`（原 ${oldPlate}）`, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
         msg('regMsg','ok',`登記完成!舊車牌 ${oldPlate} 已更新為 ${plate}`);
         clearForm(); btn.disabled=false; btn.textContent='送出登記'; return;
       }
@@ -286,6 +299,7 @@ async function submitReg(){
       method:'POST', headers:H, body: JSON.stringify(rec)
     });
     if(!r.ok) throw new Error('登記失敗 ' + r.status);
+    notifyLine({plate:plate, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
     msg('regMsg','ok',`登記完成!車牌 ${plate} 已送出,謝謝配合`);
     clearForm();
   }catch(e){
