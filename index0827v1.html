@@ -159,11 +159,7 @@
     <input type="text" id="fPlate" placeholder="例:ABC1234" autocapitalize="characters" autocomplete="off">
 
     <label>舊車牌<span class="hint">換車、換牌才需填寫,舊資料會自動更新</span></label>
-    <input type="text" id="fOldPlate" placeholder="無則免填" autocapitalize="characters" autocomplete="off" oninput="toggleOldPhone()">
-    <div id="boxOldPhone" style="display:none">
-      <label style="margin-top:14px">舊車牌登記電話<span class="req">＊</span><span class="hint">為保障車主,換牌需輸入舊車牌當初登記的電話</span></label>
-      <input type="tel" id="fOldPhone" placeholder="舊車牌登記的09xxxxxxxx" maxlength="10" inputmode="numeric" autocomplete="off">
-    </div>
+    <input type="text" id="fOldPlate" placeholder="無則免填" autocapitalize="characters" autocomplete="off">
 
     <label>攤名<span class="req">＊</span></label>
     <input type="text" id="fStall" placeholder="例:阿明鹽酥雞" autocomplete="off">
@@ -263,11 +259,6 @@ function setSpotType(t){
   document.getElementById('boxTemp').style.display = t==='temp'?'block':'none';
 }
 
-function toggleOldPhone(){
-  const hasOld = document.getElementById('fOldPlate').value.trim().length > 0;
-  document.getElementById('boxOldPhone').style.display = hasOld ? 'block' : 'none';
-}
-
 function normPlate(s){
   return (s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 }
@@ -288,7 +279,6 @@ function askConfirm(){
   const issuer   = document.getElementById('fIssuer').value.trim();
   const driver   = document.getElementById('fDriver').value.trim();
   const phone    = document.getElementById('fPhone').value.trim();
-  const oldPhone = document.getElementById('fOldPhone').value.trim();
 
   if(!plate)  return msg('regMsg','err','請填寫車牌');
   if(plate.length < 4) return msg('regMsg','err','車牌格式不正確,請再確認');
@@ -297,7 +287,6 @@ function askConfirm(){
   if(spotType==='temp' && !issuer) return msg('regMsg','err','臨時格請填寫發位者');
   if(!driver) return msg('regMsg','err','請填寫司機姓名');
   if(!/^09\d{8}$/.test(phone)) return msg('regMsg','err','電話格式不正確,須為 09 開頭共 10 碼數字');
-  if(oldPlate && !/^09\d{8}$/.test(oldPhone)) return msg('regMsg','err','換牌需填寫舊車牌的登記電話(09 開頭共 10 碼)');
 
   // 組確認框內容
   let rows = `<div class="row"><div class="k">車牌</div><div class="v hi">${esc(plate)}</div></div>`;
@@ -325,7 +314,6 @@ async function doSubmit(){
   const issuer   = document.getElementById('fIssuer').value.trim();
   const driver   = document.getElementById('fDriver').value.trim();
   const phone    = document.getElementById('fPhone').value.trim();
-  const oldPhone = document.getElementById('fOldPhone').value.trim();
 
   const btn = document.getElementById('btnSubmit');
   btn.disabled = true; btn.textContent = '送出中…';
@@ -350,27 +338,19 @@ async function doSubmit(){
       btn.disabled=false; btn.textContent='送出登記'; return;
     }
 
-    // 有填舊車牌 → 需驗證「舊車牌 + 登記電話」相符才可換牌
+    // 有填舊車牌且資料庫有該筆 → 更新舊資料(換車/換牌)
     if(oldPlate){
-      const oldR = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${oldPlate}&select=id,driver_phone`, {headers:H});
+      const oldR = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${oldPlate}&select=id`, {headers:H});
       const old = await oldR.json();
-      if(old.length === 0){
-        msg('regMsg','err','查無此舊車牌,請確認舊車牌是否正確,或洽管理人員');
-        btn.disabled=false; btn.textContent='送出登記'; return;
+      if(old.length > 0){
+        const u = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${oldPlate}`, {
+          method:'PATCH', headers:H, body: JSON.stringify(rec)
+        });
+        if(!u.ok) throw new Error('更新失敗 ' + u.status);
+        notifyLine({plate:plate+`（原 ${oldPlate}）`, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
+        msg('regMsg','ok',`登記完成!舊車牌 ${oldPlate} 已更新為 ${plate}`);
+        clearForm(); btn.disabled=false; btn.textContent='送出登記'; return;
       }
-      // 比對電話
-      if((old[0].driver_phone||'') !== oldPhone){
-        msg('regMsg','err','舊車牌與登記電話不符,為保障車主無法更換。如有疑問請洽管理人員');
-        btn.disabled=false; btn.textContent='送出登記'; return;
-      }
-      // 通過驗證,更新
-      const u = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${oldPlate}`, {
-        method:'PATCH', headers:H, body: JSON.stringify(rec)
-      });
-      if(!u.ok) throw new Error('更新失敗 ' + u.status);
-      notifyLine({plate:plate+`（原 ${oldPlate}）`, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
-      msg('regMsg','ok',`登記完成!舊車牌 ${oldPlate} 已更新為 ${plate}`);
-      clearForm(); btn.disabled=false; btn.textContent='送出登記'; return;
     }
 
     // 新增
@@ -388,8 +368,7 @@ async function doSubmit(){
 }
 
 function clearForm(){
-  ['fPlate','fOldPlate','fStall','fSpot','fIssuer','fDriver','fPhone','fOldPhone'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('boxOldPhone').style.display = 'none';
+  ['fPlate','fOldPlate','fStall','fSpot','fIssuer','fDriver','fPhone'].forEach(id=>document.getElementById(id).value='');
   setSpotType('fixed');
 }
 
