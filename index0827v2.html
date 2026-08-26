@@ -368,7 +368,7 @@ async function doSubmit(){
         method:'PATCH', headers:H, body: JSON.stringify(rec)
       });
       if(!u.ok) throw new Error('更新失敗 ' + u.status);
-      notifyLine({type:'change', plate:plate, oldPlate:oldPlate, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
+      notifyLine({plate:plate+`（原 ${oldPlate}）`, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
       msg('regMsg','ok',`登記完成!舊車牌 ${oldPlate} 已更新為 ${plate}`);
       clearForm(); btn.disabled=false; btn.textContent='送出登記'; return;
     }
@@ -378,7 +378,7 @@ async function doSubmit(){
       method:'POST', headers:H, body: JSON.stringify(rec)
     });
     if(!r.ok) throw new Error('登記失敗 ' + r.status);
-    notifyLine({type:'new', plate:plate, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
+    notifyLine({plate:plate, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
     msg('regMsg','ok',`登記完成!車牌 ${plate} 已送出,謝謝配合`);
     clearForm();
   }catch(e){
