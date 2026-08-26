@@ -90,6 +90,26 @@
   .btn:disabled{background:#c9bdae;cursor:default}
   .btn.line{background:#fff;color:var(--accent);border:1.5px solid var(--accent);margin-top:10px}
   .msg{margin-top:14px;padding:12px;border-radius:8px;font-size:14px;display:none;line-height:1.6}
+  .confirm-overlay{
+    display:none;position:fixed;inset:0;z-index:100;
+    background:rgba(30,22,16,.55);
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .confirm-overlay.show{display:flex}
+  .confirm-box{
+    background:var(--card);border-radius:14px;
+    padding:22px 20px;max-width:420px;width:100%;
+    box-shadow:0 8px 30px rgba(40,25,10,.3);
+    max-height:90vh;overflow-y:auto;
+  }
+  .confirm-title{font-size:18px;font-weight:700;color:var(--accent);text-align:center}
+  .confirm-sub{font-size:12px;color:#9a8a76;text-align:center;margin:6px 0 16px;line-height:1.5}
+  .confirm-list{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:6px}
+  .confirm-list .row{display:flex;border-bottom:1px solid var(--line);font-size:15px}
+  .confirm-list .row:last-child{border-bottom:none}
+  .confirm-list .k{flex:0 0 90px;background:#f4ecdf;padding:11px 12px;font-weight:600;color:#6b5b47}
+  .confirm-list .v{flex:1;padding:11px 12px;word-break:break-all}
+  .confirm-list .v.hi{font-weight:700;color:var(--accent);font-size:16px}
   .msg.ok{display:block;background:#e8f5ec;color:var(--ok)}
   .msg.err{display:block;background:#fdecea;color:var(--err)}
   /* admin */
@@ -162,8 +182,19 @@
     <label>司機電話<span class="req">＊</span><span class="hint">09 開頭共 10 碼</span></label>
     <input type="tel" id="fPhone" placeholder="09xxxxxxxx" maxlength="10" inputmode="numeric" autocomplete="off">
 
-    <button class="btn" id="btnSubmit" onclick="submitReg()">送出登記</button>
+    <button class="btn" id="btnSubmit" onclick="askConfirm()">送出登記</button>
     <div class="msg" id="regMsg"></div>
+  </div>
+
+  <!-- 送出前確認框 -->
+  <div id="confirmOverlay" class="confirm-overlay">
+    <div class="confirm-box">
+      <div class="confirm-title">請確認登記資料</div>
+      <div class="confirm-sub">送出後如需修改請洽管理人員,請仔細核對</div>
+      <div id="confirmList" class="confirm-list"></div>
+      <button class="btn" id="btnConfirmSend" onclick="doSubmit()">確認無誤,送出</button>
+      <button class="btn line" onclick="closeConfirm()">返回修改</button>
+    </div>
   </div>
 </div>
 
@@ -239,7 +270,8 @@ function msg(id, cls, text){
 }
 
 /* ---------- 登記送出 ---------- */
-async function submitReg(){
+// 按「送出登記」→ 先驗證,通過就跳出確認框
+function askConfirm(){
   const plate    = normPlate(document.getElementById('fPlate').value);
   const oldPlate = normPlate(document.getElementById('fOldPlate').value);
   const stall    = document.getElementById('fStall').value.trim();
@@ -255,6 +287,33 @@ async function submitReg(){
   if(spotType==='temp' && !issuer) return msg('regMsg','err','臨時格請填寫發位者');
   if(!driver) return msg('regMsg','err','請填寫司機姓名');
   if(!/^09\d{8}$/.test(phone)) return msg('regMsg','err','電話格式不正確,須為 09 開頭共 10 碼數字');
+
+  // 組確認框內容
+  let rows = `<div class="row"><div class="k">車牌</div><div class="v hi">${esc(plate)}</div></div>`;
+  if(oldPlate) rows += `<div class="row"><div class="k">舊車牌</div><div class="v">${esc(oldPlate)}</div></div>`;
+  rows += `<div class="row"><div class="k">攤名</div><div class="v">${esc(stall)}</div></div>`;
+  rows += `<div class="row"><div class="k">格位</div><div class="v">${esc(spot)}${spotType==='temp'?'（臨時格）':''}</div></div>`;
+  if(spotType==='temp') rows += `<div class="row"><div class="k">發位者</div><div class="v">${esc(issuer)}</div></div>`;
+  rows += `<div class="row"><div class="k">司機</div><div class="v">${esc(driver)}</div></div>`;
+  rows += `<div class="row"><div class="k">電話</div><div class="v">${esc(phone)}</div></div>`;
+  document.getElementById('confirmList').innerHTML = rows;
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+
+function closeConfirm(){
+  document.getElementById('confirmOverlay').classList.remove('show');
+}
+
+// 確認框按「確認送出」→ 真正寫入資料庫
+async function doSubmit(){
+  closeConfirm();
+  const plate    = normPlate(document.getElementById('fPlate').value);
+  const oldPlate = normPlate(document.getElementById('fOldPlate').value);
+  const stall    = document.getElementById('fStall').value.trim();
+  const spot     = document.getElementById('fSpot').value.trim();
+  const issuer   = document.getElementById('fIssuer').value.trim();
+  const driver   = document.getElementById('fDriver').value.trim();
+  const phone    = document.getElementById('fPhone').value.trim();
 
   const btn = document.getElementById('btnSubmit');
   btn.disabled = true; btn.textContent = '送出中…';
