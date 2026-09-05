@@ -188,12 +188,6 @@
 
     <button class="btn" id="btnSubmit" onclick="askConfirm()">送出登記</button>
     <div class="msg" id="regMsg"></div>
-    <a id="lineBtn" href="https://lin.ee/tBvqVAy" target="_blank" rel="noopener"
-       style="display:none;margin-top:12px;text-align:center;text-decoration:none;
-              background:#06C755;color:#fff;font-weight:700;font-size:16px;
-              padding:13px;border-radius:10px;letter-spacing:1px;">
-      有問題?請加入管委會官方LINE洽詢
-    </a>
   </div>
 
   <!-- 送出前確認框 -->
@@ -282,11 +276,6 @@ function msg(id, cls, text){
   const el = document.getElementById(id);
   el.className = 'msg ' + cls;
   el.textContent = text;
-  // 登記頁:成功才顯示官方 LINE 按鈕
-  if(id === 'regMsg'){
-    const lb = document.getElementById('lineBtn');
-    if(lb) lb.style.display = (cls === 'ok') ? 'block' : 'none';
-  }
 }
 
 /* ---------- 登記送出 ---------- */
@@ -357,7 +346,7 @@ async function doSubmit(){
     const dupR = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?plate=eq.${plate}&select=plate,driver_name`, {headers:H});
     const dup = await dupR.json();
     if(dup.length > 0){
-      msg('regMsg','err',`此車牌已由「${dup[0].driver_name}」登記過。若您要換車、換牌,請在上方「舊車牌」欄填入原車牌辦理;如有問題請於營業時間至管理室洽詢`);
+      msg('regMsg','err',`此車牌已由「${dup[0].driver_name}」登記過,如需修改請洽管理人員`);
       btn.disabled=false; btn.textContent='送出登記'; return;
     }
 
@@ -382,14 +371,6 @@ async function doSubmit(){
       notifyLine({type:'change', plate:plate, oldPlate:oldPlate, stall:stall, spot:(spotType==='temp'?'臨時格・'+issuer:spot), driver:driver, phone:phone});
       msg('regMsg','ok',`登記完成!舊車牌 ${oldPlate} 已更新為 ${plate}`);
       clearForm(); btn.disabled=false; btn.textContent='送出登記'; return;
-    }
-
-    // 全新登記:檢查電話是否已被其他車牌登記(換牌不檢查,因同一人電話本就相同)
-    const phoneR = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?driver_phone=eq.${phone}&select=plate,driver_name`, {headers:H});
-    const phoneDup = await phoneR.json();
-    if(phoneDup.length > 0){
-      msg('regMsg','err',`此電話已登記過車牌「${phoneDup[0].plate}」,無法重複申請。如有問題請於營業時間至管理室洽詢`);
-      btn.disabled=false; btn.textContent='送出登記'; return;
     }
 
     // 新增
